@@ -1,5 +1,3 @@
-# RGI
-
 ///////////////////////////////////////////////////////////////
 //bootstrap css & js///////////////////////////////////
 ///////////////////////////////////////////////////////////////
@@ -116,3 +114,50 @@ $result = mysqli_query($connection, $query);
 		echo "deleted.";
 	}
 }
+
+
+
+
+/*   JQUERY   */
+
+
+$("p").css("background-color", "yellow");
+
+////////////////////////////
+EVENTS
+////////////////////////////
+$("p").click(function(){ 
+    $(this).hide();   //.show
+});
+.mouseenter(){}
+.mouseleave(){}
+
+$(document).ready(function(){
+   // jQuery methods go here...
+});
+
+ ///////AJAX//////////
+ $(document).ready(function(){
+    $("button").click(function(){
+        $("#div1").load("demo_test.txt");
+    });
+});
+</script>
+</head>
+<body>
+<div id="div1"></h2></div>
+<button>Get External Content</button>
+
+
+
+
+
+
+/* BOOTSTRAP */
+https://v4-alpha.getbootstrap.com/components/forms/
+https://www.w3schools.com/bootstrap/bootstrap_forms_inputs.asp
+
+Add class .form-control to all textual <input>, <textarea>, and <select> elements
+
+Input types:  text, password, datetime, datetime-local, date, month, time, week, number, email, url, search, tel, and color.
+
