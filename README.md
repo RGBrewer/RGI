@@ -32,7 +32,10 @@
 
 /*     PHP      */ 
 
-session_start(); //must be at top of page before headers are sent
+session_start(); //must be at top of page before headers are sent. 
+remember to sanitize inputs. 
+$_SESSION["favcolor"] = "green";
+
 
 //connects to the database
 <?php 
@@ -47,8 +50,7 @@ global $connection; in every function
  
 //CREATE
 
-//SANITIZE INPUTS!
-$age = mysqli_real_escape_string($connection, $_POST['title']);
+$age = mysqli_real_escape_string($connection, $_POST['title']); //SANITIZE INPUTS!
 
 $query = "INSERT INTO posts(title,link,category,submitter,postDate,image) WHERE id=$id "; //Crucial ending space
 $query .= "VALUES ('$title','$link','$category','$submitter','$postDate','$image')";
