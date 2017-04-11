@@ -44,7 +44,11 @@ global $connection; in every function
 
  
 //CREATE
-$query = "INSERT INTO posts(title,link,category,submitter,postDate,image) ";
+
+//SANITIZE INPUTS!
+$age = mysqli_real_escape_string($connection, $_POST['title']);
+
+$query = "INSERT INTO posts(title,link,category,submitter,postDate,image) WHERE id=$id "; //Crucial ending space
 $query .= "VALUES ('$title','$link','$category','$submitter','$postDate','$image')";
 
 $result = mysqli_query($connection, $query);
