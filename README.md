@@ -42,7 +42,7 @@ if ($connection) {
 
 global $connection; in every function
 
-
+ 
 //CREATE
 $query = "INSERT INTO posts(title,link,category,submitter,postDate,image) ";
 $query .= "VALUES ('$title','$link','$category','$submitter','$postDate','$image')";
