@@ -32,6 +32,8 @@
 
 /*     PHP      */ 
 
+session_start(); //must be at top of page before headers are sent
+
 //connects to the database
 <?php 
 $connection = mysqli_connect('localhost', 'root', '','lp2');
