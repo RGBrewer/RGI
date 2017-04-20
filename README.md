@@ -272,3 +272,89 @@ Input types:  text, password, datetime, datetime-local, date, month, time, week,
 
 
 
+
+
+
+
+
+Getting info from the database:
+
+controller calls model\sale\order\getOrder($order_id), which returns an array
+ of all info from that order. Each array field must be hand-coded within the model. 
+
+
+------------------------------------------------------------------------------------------------------
+controller\sale\order.php
+$order_info = $this->model_sale_order->getOrder($this->request->get['order_id']);
+	returns an array with all rows from table oc_order
+ 
+model\sale\order.php
+	$order_product_query = $this->db->query("SELECT * FROM " . DB_PREFIX . "tableName WHERE order_id = '" . (int)$order_id . "'");
+
+	return array(
+	'shipping_tracking'		  => $order_query->row['shipping_tracking'],
+	)
+------------------------------------------------------------------------------------------------------
+
+
+
+
+Adding field to database, and making it editable.
+
+CRUD
+
+//READ AN EXISTING VALUE///////
+Create row in database.
+The model queries the database for that order_id and returns an array. You need to tell the array to look for your row. 
+On pageview, controller then calls the model, which returns the array of rows.  
+Tell the controller to retrieve your new row too, by adding it to the $data[''] array. This makes it available to the view.
+Add necessary language to your language file. (Labels and default values mostly)
+Create the view to display the values from the db.
+
+//UPDATE//
+The catalog\module\checkout\order.php file controls updating orders. Its called via ajax in the admin panel from button-save 
+but it does very... very.. strange things..
+
+
+
+
+/////////////////////////////////////////////////////////////////
+^^^ Thats the hard way. Heres a custom solution 
+/////////////////////////////////////////////////////////////////
+
+
+In the view, on click, ajax post to a controller or api. the api calls a model and pushes along parameters from GET and POST. the model updates the database and the ajax callback alerts success.
+
+$('#saveTracking').on('click', function() { //note this is just the span for the on click ... 
+  trackingNumber = $('.trackingNumber').val(); //... you need the actual inputBox value
+      $.ajax({
+      type: "POST",
+      //we will use a GET request to retrieve the order_id from its input box (via its name)
+      //and pass it to api/shipping.php updatetracking()
+      url: '<?php echo $catalog; ?>index.php?route=api/shipping/updatetracking&token=' + token + '&order_id=' + $('input[name=\'order_id\']').val(),        
+      data: { tracking_number: trackingNumber }, //key value pairs in JSON format
+      crossDomain: true, //possibly not necessary
+      success: function (msg) {
+         alert("Tracking Number Saved"); 
+      }
+      });
+ });
+
+inside the controller or api, we retrieve the variables from POST and GET
+
+	public function updatetracking(){
+		$tracking_number = $_POST['tracking_number'];
+		//TODO sanitize inputs... this is an admin only page, so not a huge concern
+		$order_id = $_GET['order_id'];
+		$this->load->model('checkout/order');
+		$this->model_checkout_order->setTracking($_POST['tracking_number'], $_GET['order_id']); //calling a function within model checkout order and passing a post and a get
+
+	}
+
+
+and we are calling this function in the model, and we're done.
+
+	public function setTracking($data,$order_id){
+		$this->db->query("UPDATE " . DB_PREFIX . "order SET shipping_tracking = '" . $data . "' WHERE order_id = '" . (int)$order_id . "'");
+	}
+
