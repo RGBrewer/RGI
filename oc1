@@ -1,0 +1,71 @@
+controller...
+
+//Status selectbox //		
+		/*  INDEX | KEY 
+			0	    order_status_id
+			1 		name                   
+		USE: (not real results...)
+		$statusNames[0][1] returns pending 				$statusNames[0][0] returns 1
+		$statusNames[1][1] returns processing 			$statusNames[1][0] returns 2
+		$statusNames[2][1] returns cancelled			$statusNames[2][0] returns 3
+		*/
+		$data['statusNames'] = $this->model_sale_order->getStatusNames(); //passes a 2d array
+
+//******//
+
+		$results = $this->model_sale_order->getOrders($filter_data);
+		foreach ($results as $result) {
+			//Tracking number: for each order, pass the order ID to into the model, which returns an array
+			$tracking = $this->model_sale_order->getTracking($result['order_id']);
+			$trackingNum = $tracking['shipping_tracking'];
+			$trackingComp = $tracking['shipping_tracking_company'];
+
+
+
+			$data['orders'][] = array(
+				'order_id'      => $result['order_id'],
+				'customer'      => $result['customer'],
+				'trackingNum'	=> $trackingNum, //link tracking number into the orders array 
+				'trackingComp'	=> $trackingComp, 
+        
+        
+        
+        
+        
+        
+In model...
+        
+  public function getTracking($order_id){
+	$query = $this->db->query("SELECT shipping_tracking, shipping_tracking_company FROM " . DB_PREFIX . "order WHERE order_id = '" . (int)$order_id . "'");
+	return $query->row;
+}
+
+
+public function setOrderById($newTitle,$newVal,$order_id){
+	$query = $this->db->query("UPDATE `" . DB_PREFIX . "order` SET " . $newTitle . " = '" . $newVal . "' WHERE order_id=" . $order_id);
+	}
+  
+
+public function setTracking($trackingNum,$trackingComp,$order_id){		
+	$this->db->query("UPDATE " . DB_PREFIX . "order SET shipping_tracking = '" . $trackingNum . "',shipping_tracking_company = '" . $trackingComp . "' WHERE order_id = '" . (int)$order_id . "'");
+}
+
+
+public function getStatusNames(){
+	$query = $this->db->query("SELECT * FROM `oc_order_status` ORDER BY `order_status_id` ASC");
+	$statusNames = $query->rows; //returns 2d array of status IDs and status names ... ie $statusNames[0]['name'] = email
+	$arrayStatusNames = array();
+	for ($i=0;$i<count($statusNames);$i++){
+		$osName = $statusNames[$i]['name'];
+		$osID = $statusNames[$i]['order_status_id'];
+		$arrayStatusNames[] = array($osID,$osName); //make a new array and push it into arrayStatusNames for return
+	}
+	return $arrayStatusNames;
+}
+
+
+
+
+
+
+
