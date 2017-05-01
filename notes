@@ -1,0 +1,277 @@
+
+Getting info from the database:
+
+controller calls model\sale\order\getOrder($order_id), which returns an array
+of all info from that order. Each array field must be hand-coded within the model. 
+
+
+------------------------------------------------------------------------------------------------------
+controller\sale\order.php
+$order_info = $this->model_sale_order->getOrder($this->request->get['order_id']);
+returns an array with all rows from table oc_order
+
+model\sale\order.php
+$order_product_query = $this->db->query("SELECT * FROM " . DB_PREFIX . "tableName WHERE order_id = '" . (int)$order_id . "'");
+
+return array(
+'shipping_tracking'		  => $order_query->row['shipping_tracking'],
+)
+------------------------------------------------------------------------------------------------------
+
+
+
+
+Adding field to database, and making it editable.
+
+CRUD
+
+//READ AN EXISTING VALUE///////
+Create row in database.
+The model queries the database for that order_id and returns an array. You need to tell the array to look for your row. 
+On pageview, controller then calls the model, which returns the array of rows.  
+Tell the controller to retrieve your new row too, by adding it to the $data[''] array. This makes it available to the view.
+Add necessary language to your language file. (Labels and default values mostly)
+Create the view to display the values from the db.
+
+//UPDATE//
+The catalog\module\checkout\order.php file controls updating orders. Its called via ajax in the admin panel from button-save 
+but it does very... very.. strange things..
+
+
+
+
+/////////////////////////////////////////////////////////////////
+^^^ Thats the hard way. Heres the modern solution 
+/////////////////////////////////////////////////////////////////
+
+In the view, on click, ajax post to a controller or api. the api in turn calls a model and pushes along parameters from GET and POST. the model updates the database and the ajax callback alerts success.
+
+$('#saveTracking').on('click', function() { //note this is just the span for the on click ... 
+trackingNumber = $('.trackingNumber').val(); //... you need the actual inputBox value
+$.ajax({
+type: "POST",
+//we will use a GET request to retrieve the order_id from its input box (via its name)
+//and pass it to api/shipping.php updatetracking()
+url: '<?php echo $catalog; ?>index.php?route=api/shipping/updatetracking&token=' + token + '&order_id=' + $('input[name=\'order_id\']').val(),        
+data: { tracking_number: trackingNumber }, //key value pairs
+crossDomain: true, //possibly not necessary
+success: function (msg) {
+alert("Tracking Number Saved"); 
+}
+});
+});
+
+inside the controller or api, we retrieve the variables from POST and GET
+
+public function updatetracking(){
+$tracking_number = $_POST['tracking_number'];
+//TODO sanitize inputs... this is an admin only page, so not a huge concern
+$order_id = $_GET['order_id'];
+$this->load->model('checkout/order');
+$this->model_checkout_order->setTracking($_POST['tracking_number'], $_GET['order_id']); 
+}
+
+
+and we are calling this function in the model, and we're done.
+
+public function setTracking($data,$order_id){
+$this->db->query("UPDATE " . DB_PREFIX . "order SET shipping_tracking = '" . $data . "' WHERE order_id = '" . (int)$order_id . "'");
+}
+
+
+Don't call the model directly from the view. 
+
+
+
+
+
+
+///////////////////////////////
+Add field to order list from DB
+///////////////////////////////
+
+little hacky..
+
+the order.list tpl interacts with the filters 
+
+The filters output is then passed to model_sale_order->getOrder($filter_data);
+which outputs a results array 
+
+then for each result, use the $order_id to get the shipping ID via a custom model call
+$shipping_tracking = $this->model_sale_order->getTracking($result['order_id']);
+and push that result into the $data array for use in the view. 
+$data['orders'][] = array(
+'tracking'		=> $shipping_tracking, //put tracking number into the orders array 
+now $orders['tracking'] is available in the view for use in getList. 
+
+
+$filter_data = array(
+'filter_order_id'      => $filter_order_id,
+'filter_customer'	   => $filter_customer,
+'filter_order_status'  => $filter_order_status,
+'filter_total'         => $filter_total,
+'filter_date_added'    => $filter_date_added,
+'filter_date_modified' => $filter_date_modified,
+'sort'                 => $sort,
+'order'                => $order,
+'start'                => ($page - 1) * $this->config->get('config_limit_admin'),
+'limit'                => $this->config->get('config_limit_admin')
+);
+
+$order_total = $this->model_sale_order->getTotalOrders($filter_data);
+
+$results = $this->model_sale_order->getOrders($filter_data);
+
+foreach ($results as $result) {
+//Tracking number: Use the order ID to pass into the model, which retrieves the tracking number
+$shipping_tracking = $this->model_sale_order->getTracking($result['order_id']);
+$data['orders'][] = array(
+'order_id'      => $result['order_id'],
+'customer'      => $result['customer'],
+//
+//
+'tracking'		=> $shipping_tracking, //put tracking number into the orders array 
+//
+'order_status'  => $result['order_status'] ? $result['order_status'] : $this->language->get('text_missing'),
+'total'         => $this->currency->format($result['total'], $result['currency_code'], $result['currency_value']),
+'date_added'    => date($this->language->get('date_format_short'), strtotime($result['date_added'])),
+'date_modified' => date($this->language->get('date_format_short'), strtotime($result['date_modified'])),
+'shipping_code' => $result['shipping_code'],
+'view'          => $this->url->link('sale/order/info', 'token=' . $this->session->data['token'] . '&order_id=' . $result['order_id'] . $url, true),
+'edit'          => $this->url->link('sale/order/edit', 'token=' . $this->session->data['token'] . '&order_id=' . $result['order_id'] . $url, true)
+);
+}
+
+
+
+
+
+To retrieve multiple results, your model becomes
+
+public function getTracking($order_id){
+$query = $this->db->query("SELECT shipping_tracking, shipping_tracking_company ";
+$query .= "FROM " . DB_PREFIX . "order ";
+$query .= "WHERE order_id = '" . (int)$order_id . "'");
+return $query->rows; 
+}
+
+so...
+$tracking = $this->model_sale_order->getTracking($result['order_id']);
+will return such that...
+$trackingNum = $tracking[0]['shipping_tracking']; //sql header names
+$trackingComp = $tracking[0]['shipping_tracking_company'];
+
+which you then push into your $data array...
+
+$data['orders'][] = array(
+'order_id'      => $result['order_id'],
+'customer'      => $result['customer'],
+'trackingNum'	=> $trackingNum, //put tracking number into the orders array 
+'trackingComp'	=> $trackingComp, 
+
+and vars are now available in your view.
+
+
+
+
+
+
+Traversing Dom:
+
+When your outputting a loop via php youre making the same classes repeatedly.
+
+Create a grandparent for each loop, then use .closest() to find the closest grandparent of the event click
+then .find() down the dom to your info. Bingo bango. 
+
+var order_id = $(this).closest(".order_row").find(".order_id").html(); //get the order id
+
+
+
+
+
+
+
+
+
+              <div class="form-group">
+                <!-- Hidden input --> <span class="table_title" style="display:none"><?php echo "email" ?></span>
+                <div class="col-sm-2 control-label" style="text-align:right"><b><?php echo "email"; ?></b></div>
+                <div class="col-sm-10">
+                  <div class ="of_hidden" style="display:none">
+                    <span class="of_error"></span>
+                    <input type="text" name="email" value="<?php echo $email; ?>" id="input-email" class="form-control" />
+                    <span class="of_save">Save</span> | <span class="of_cancel">Cancel</span>
+                  </div>
+                  <div class="of_trigger"><p class="of_trigger_padding"><?php echo $email; ?></p></div>
+                </div>
+              </div>
+              
+              
+              
+              <script>
+$(".of_trigger,.of_cancel,.of_save").hover(function() {
+    $(this).css('cursor','pointer');
+    $(this).css('color','blue');
+    },function(){
+    $(this).css('color','');
+    
+});
+
+
+
+$(".of_trigger").on('click', function(){
+var of_hidden = $(this).closest(".form-group").find('.of_hidden');
+var of_trigger = $(this).closest(".form-group").find('.of_trigger');
+of_hidden.show();
+of_trigger.hide();
+});
+
+$(".of_cancel").on('click', function(){
+var of_row = $(this).closest(".form-group");
+var of_hidden = $(this).closest(".form-group").find('.of_hidden');
+var of_trigger = $(this).closest(".form-group").find('.of_trigger');
+of_hidden.hide();
+of_trigger.show();
+of_row.css("color","");
+of_row.css("border-color","");
+});
+
+$(".of_save").on('click', function(){
+var of_row = $(this).closest(".form-group");
+var of_table_title = $(this).closest(".form-group").find('.table_title');
+var of_new_table = of_table_title.html();
+var of_hidden = $(this).closest(".form-group").find('.of_hidden');
+var of_newVal = $.trim($(this).closest(".form-group").find('input').val());
+var of_trigger = $(this).closest(".form-group").find('.of_trigger');
+var token = "<?php echo $_GET['token']; ?>";
+var order_id = "<?php echo $_GET['order_id']; ?>";
+var of_error = $(this).closest(".form-group").find('.of_error');
+
+if (of_newVal.length<1 || of_newVal==" "){
+  of_error.css("color","red");
+  of_error.text("Field cannot be left empty.");
+  of_row.css("border-color","red");
+
+  return
+}
+
+$.ajax({
+    type: "POST",
+    url: 'index.php?route=sale/order/updateOrderById&token=' + token + '&order_id=' + order_id, 
+    data: { newVal: of_newVal,
+            of_title: of_new_table
+               }, //key value pairs in JSON format
+        success: function (res) {
+        //alert(res);
+        //alert("You have updated " + of_new_table + " to " + of_newVal); 
+        of_trigger.find(".of_trigger_padding").text(of_newVal);
+        of_trigger.find(".of_trigger_padding").css("color","#0fff1b");        
+        of_error.text("");
+        of_row.css("border-color","");
+        of_hidden.hide();
+        of_trigger.show();
+        setTimeout(function(){ of_trigger.find(".of_trigger_padding").css("color",""); }, 500);
+        }
+      });
+});
+</script>
