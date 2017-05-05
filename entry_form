@@ -1,0 +1,804 @@
+<?php require "./config.php";
+include('./libraries/class.upload.php');
+$user = $LS->getUser();
+
+  $errors = NULL;
+  $success = NULL;
+  $title = 'Event Summary Form';
+
+  if (isset($_SESSION['success'])) {
+    $success = $_SESSION['success'];
+    unset($_SESSION['success']);
+  }
+
+if (!isset($success)) {
+
+  if (isset($_POST['delete'])) {
+
+    $sql = "UPDATE `sale` SET `sale_active` = 0 WHERE `sale_id` = {$_GET['sale_id']} ";
+    $dbh->pdoExecute($sql);
+
+    // // First we delete the sale entry from the sale table
+    // $sql = "DELETE FROM `sale` WHERE `sale_id` = {$_GET['sale_id']} ";
+    // $dbh->pdoExecute($sql);
+
+    // // Second we get all the file_id that belong to the sale
+    // $sql = "SELECT file_id FROM `file_to_sale` WHERE `sale_id` = {$_GET['sale_id']} ";
+    // $files = $dbh->pdoGetAll($sql);
+
+    // // Third we delete all files from the file table
+    // foreach ($files as $file) {
+    //   $sql = "DELETE FROM `file` WHERE `file_id` = {$file['file_id']} ";
+    //   $dbh->pdoExecute($sql);
+    // }
+
+    // // Forth we delete all the records from the file_to_sale table
+    // $sql = "DELETE FROM `file_to_sale` WHERE `sale_id` = {$_GET['sale_id']} ";
+    // $dbh->pdoExecute($sql);
+
+    $_SESSION['success'] ="<strong>Success!</strong> You have successfully deleted the sale entry.";
+    header("Location: ./Sales_History.php");
+  }
+
+  if (isset($_GET['sale_id']) && !$_GET['sale_id'] == '') {
+    $sql = "select *
+            from sale
+            WHERE sale_id = {$_GET['sale_id']}
+            AND user_id = {$user['id']}";
+
+    $sale = $dbh->pdoGetRow($sql);
+
+    $sql = "select *
+            from file_to_sale fts
+            LEFT JOIN file f
+            ON fts.file_id = f.file_id
+            WHERE sale_id = {$_GET['sale_id']} ";
+
+    $existing_files = $dbh->pdoGetAll($sql);
+
+    $title = 'Edit Sale Entry';
+
+    if (!$sale) {
+      $errors['notification'] = "This is not your record to edit";
+      $title = 'Sale Entry Form';
+    }
+  }
+
+  if(isset($_POST['submit_form'])){
+    if (isset($_GET['sale_id'])) {
+      $sale_id = $_GET['sale_id'];
+    }
+    $sale_date = $_POST['sale_date'];
+    $store_id = $_POST['store_id'];
+    $store_city = $_POST['store_city'];
+    $sale_start_time = $_POST['sale_start_time'];
+    $sale_finish_time = $_POST['sale_finish_time'];
+    $sale_total_quantity = $_POST['sale_total_quantity'];
+    $sale_queen_single = $_POST['sale_queen_single'];
+    $sale_queen_set = $_POST['sale_queen_set'];
+    $sale_queen_sheet = $_POST['sale_queen_sheet'];
+    $sale_queen_bundle = $_POST['sale_queen_bundle'];
+    $sale_king_single = $_POST['sale_king_single'];
+    $sale_king_set = $_POST['sale_king_set'];
+    $sale_king_sheet = $_POST['sale_king_sheet'];
+    $sale_king_bundle = $_POST['sale_king_bundle'];
+    $comment = $_POST['comment'];
+
+    if( $sale_date=="" || $store_id=="" || $store_city=='' || $sale_start_time=='' || $sale_finish_time=='' || $sale_total_quantity=='' ){
+      $errors['required'] = "<strong>Input Error:</strong>Required input missing.  Please check the form and fill out all required fields.</p>";
+    }
+
+    $today = strtotime('now');
+    $compare_date = strtotime($sale_date);
+
+    if($compare_date > $today) {
+      $errors['sale_date'] = "<p style='color:red;'>Error: You may not enter a date in the future.</p>";
+    }
+
+    if($_POST['sale_date'] === '') {
+      $errors['sale_date'] = "<p style='color:red;'>Required: You must enter a date.</p>";
+    }
+
+    if($_POST['store_id'] === '') {
+      $errors['store_id'] = "<p style='color:red;'>Required: You must enter a store number.</p>";
+    }
+
+    if($_POST['store_city'] === '') {
+      $errors['store_city'] = "<p style='color:red;'>Required: You must enter a club city.</p>";
+    }
+
+    $compare_start_time = new DateTime($sale_start_time, new DateTimeZone('America/New_York'));
+    $compare_end_time = new DateTime($sale_finish_time, new DateTimeZone('America/New_York'));
+
+    if($compare_start_time >= $compare_end_time ){
+      $errors['sale_start_time'] = "<p style='color:red;'>Error: start time cannot be after finish time.</p>";
+    }
+
+    if($_POST['sale_start_time'] === '') {
+      $errors['sale_start_time'] = "<p style='color:red;'>Required: You must enter a start time.</p>";
+    }
+
+    if($_POST['sale_finish_time'] === '') {
+      $errors['sale_finish_time'] = "<p style='color:red;'>Required: You must enter a finish time.</p>";
+    }
+
+    if($_POST['sale_total_quantity'] === '') {
+      $errors['sale_total_quantity'] = "<p style='color:red;'>Required: You must enter total units sold today.</p>";
+    }
+
+    if (isset($_FILES["fileToUpload"])) {
+
+      $files = array();
+      foreach ($_FILES['fileToUpload'] as $k => $l) {
+       foreach ($l as $i => $v) {
+       if (!array_key_exists($i, $files))
+         $files[$i] = array();
+         $files[$i][$k] = $v;
+       }
+      }
+      unset($files[0]);
+      $uploadOk = 1;
+
+      for ($i=0; $i < count($_FILES["fileToUpload"]["name"]); $i++) {
+
+        // Allow certain file formats
+        if (!$_FILES["fileToUpload"]["name"][$i] == '') {
+          $imageFileType = strtolower(pathinfo(basename($_FILES["fileToUpload"]["name"][$i]),PATHINFO_EXTENSION));
+          if($imageFileType != "jpg" && $imageFileType != "png" && $imageFileType != "jpeg" && $imageFileType != "gif" ) {
+            $errors['upload'] = "<p style='color:red;'>Sorry, only JPG, JPEG, PNG & GIF files are allowed.</p>";
+            $uploadOk = 0;
+          }
+          // Check if image file is a actual image or fake image
+          $check = getimagesize($_FILES["fileToUpload"]["tmp_name"][$i]);
+
+          if($check == false) {
+            $errors['upload'] = "<p style='color:red;'>File is not an image.</p>";
+            $uploadOk = 0;
+          }
+
+          // Check file size
+          if ($_FILES["fileToUpload"]["size"][$i] > 50000000) {
+            $errors['upload'] = "<p style='color:red;'>Sorry, your file is too large.</p>";
+            $uploadOk = 0;
+          }
+        }
+      }
+    }
+
+    if (isset($errors)) {
+      foreach ($errors as $error => $value) {
+        if (isset($error)) {
+          unset($_SESSION['success']);
+          $errors['exists'] = true;
+          $errors['notification'] = "<strong>Input Error!</strong> Please check the form and try again.";
+        }
+      }
+    }
+
+    if (!$errors['exists']) {
+      $result = $LS->submitSale(
+        array(
+          "sale_id" => $sale_id,
+          "store_id" => $store_id,
+          "store_city" => $store_city,
+          "sale_date" => $sale_date,
+          "sale_start_time" => $sale_start_time,
+          "sale_finish_time" => $sale_finish_time,
+          "sale_total_quantity" => $sale_total_quantity,
+          "sale_queen_single" => $sale_queen_single,
+          "sale_queen_set" => $sale_queen_set,
+          "sale_queen_sheet" => $sale_queen_sheet,
+          "sale_queen_bundle" => $sale_queen_bundle,
+          "sale_king_single" => $sale_king_single,
+          "sale_king_set" => $sale_king_set,
+          "sale_king_sheet" => $sale_king_sheet,
+          "sale_king_bundle" => $sale_king_bundle,
+          "updated_dts" => date("Y-m-d H:i:s"),
+          "comment" => $comment
+        )
+      );
+
+      // Upload the files and add records to the database
+      // if everything is ok, try to upload file
+      if ($uploadOk == 1) {
+
+        // if (isset($_GET['sale_id'])) {
+        //   $existing_files = '';
+        // }
+
+        foreach ($files as $key => $file) {
+          $target_dir = "./images/uploads/".$user['id']."/sale/".$result['id']."/";
+          $file_name = basename(strtolower(str_replace(' ', '_', $file["name"])));
+          $target_file = $target_dir . $file_name;
+
+          $file_name = pathinfo($file_name, PATHINFO_FILENAME);
+
+          $handle = new Upload($file);
+          if ($handle->uploaded) {
+              $handle->file_new_name_body = $file_name;
+              $handle->image_resize = true;
+              $handle->image_x = 800;
+              $handle->image_ratio_y = true;
+              $handle->Process($target_dir);
+              $handle->Clean();
+          }
+          unset($handle);
+
+          $LS->submitFile(
+            array(
+              "name" => strtolower(str_replace(' ', '_', $file["name"])),
+              "size" => $file["size"],
+              "type" => $file["type"],
+              "url"  => strtolower(DIR.ltrim($target_file,'.')),
+              "sale_id" => $result['id']
+            )
+          );
+        }
+      }
+
+      if($result['success'] == true){
+        if (isset($_GET['sale_id']) && $_GET['sale_id'] != '') {
+          $_SESSION['success'] ="<strong>Success!</strong> You have successfully modified your daily sales report.";
+          header("Location: ./Sales_History.php");
+        } else {
+          $_SESSION['success'] ="<strong>Success!</strong> You have successfully entered your daily sales report.";
+          header("Location: ./sale_entry.php");
+        }
+      }
+    }
+  }
+}
+?>
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Event form</title>
+
+    <!-- Bootstrap -->
+    <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.2/themes/smoothness/jquery-ui.css" />
+    <!-- <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jquerymobile/1.4.3/jquery.mobile.min.css" /> -->
+    <link href="css/bootstrap.css" rel="stylesheet">
+    <!-- <link rel="stylesheet" href="css/uploadfile.css"> -->
+    <link rel="stylesheet" href="css/style.css">
+
+    <!-- blueimp Gallery styles -->
+    <link rel="stylesheet" href="//blueimp.github.io/Gallery/css/blueimp-gallery.min.css">
+    <!-- CSS to style the file input field as button and adjust the Bootstrap progress bars -->
+    <link rel="stylesheet" href="css/jquery.fileupload.css">
+    <link rel="stylesheet" href="css/jquery.fileupload-ui.css">
+    <!-- CSS adjustments for browsers with JavaScript disabled -->
+    <noscript><link rel="stylesheet" href="css/jquery.fileupload-noscript.css"></noscript>
+    <noscript><link rel="stylesheet" href="css/jquery.fileupload-ui-noscript.css"></noscript>
+
+  </head>
+  <body style="margin-top:60px;">
+    <div class="container">
+    <?php include './includes/header.php'; ?>
+      <!-- <?php var_dump($_SESSION); ?> -->
+      <h2><?php echo $title; ?>
+      <?php if (isset($_GET['sale_id']) && !$_GET['sale_id'] == '') { ?>
+        <a href="<?php echo $_SERVER["HTTP_REFERER"]; ?>" class="btn btn-info pull-right">Back</a>
+        <a id="delete" href="#" class="btn btn-danger pull-right" style="margin-right:20px;">Delete</a>
+      <?php } ?>
+      </h2>
+      <div class="spacer_bot"></div>
+      <h4>Please use the form below to fill out your event summary.</h4>
+      <p><span class="required">* </span>All required fields are marked with a red asterisk.</p>
+      <div class="spacer_bot"></div>
+
+        <div class="alert alert-success alert-dismissible <?php echo (isset($success) ? "" : "hidden" ) ?>" role="alert">
+          <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+          <?php if(isset($success)){echo $success;} ?>
+        </div>
+
+        <div class="alert alert-danger <?php echo (isset($errors['notification']) ? "" : "hidden" ) ?>" ><?php if(isset($errors['notification'])){echo $errors['notification'];} ?></div>
+        <form id="sale_entry" action="./sale_entry.php<?php echo (isset($_GET['sale_id']) ? '?sale_id='.$_GET['sale_id']: '' );?>" method="POST" enctype="multipart/form-data">
+          <div class="row">
+            <div class="col-sm-12">
+              <br>
+              <h3>Location & Schedule:</h3>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-sm-6">
+              <div class="form-group <?php echo (isset($errors['sale_date']) ? 'has-error' : "") ?>">
+                <label for="sale_date">Date:</label><span class="required"> *</span>
+                <?php echo (isset($errors['sale_date']) ? $errors['sale_date'] : "") ?>
+                <input type="date" name="sale_date" class="form-control date" placeholder="mm/dd/yyyy" value="<?php echo (isset($_POST['sale_date']) ? $_POST['sale_date'] : ''); echo (isset($sale['sale_date']) ? $sale['sale_date'] : '') ?>"/>
+              </div>
+              <div class="form-group <?php echo (isset($errors['store_id']) ? 'has-error' : '') ?>">
+                <label for="store_id">Store:</label><span class="required"> *</span>
+                <?php echo (isset($errors['store_id']) ? $errors['store_id'] : "") ?>
+                <input type="text" name="store_id" class="form-control" id="store_id" placeholder="Enter Store" value="<?php echo (isset($_POST['store_id']) ? $_POST['store_id'] : ''); echo (isset($sale['store_id']) ? $sale['store_id'] : '') ?>"/>
+              </div>
+              <div class="form-group <?php echo (isset($errors['store_manager']) ? 'has-error' : '') ?>">
+                <label for="store_manager">Store Manager onsite:</label><span class="required"> *</span>
+                <?php echo (isset($errors['store_manager']) ? $errors['store_manager'] : "") ?>
+                <input type="text" name="store_manager" class="form-control" id="store_manager" placeholder="Enter Store Manager" value="<?php echo (isset($_POST['store_manager']) ? $_POST['store_manager'] : ''); echo (isset($sale['store_manager']) ? $sale['store_manager'] : '') ?>"/>
+              </div>
+<!--                 <div class="dropdown">
+                  <button class="dropdown-toggle" data-toggle="dropdown" href="#">date</a>
+                  <ul class="dropdown-menu" role="menu" aria-labelledby="dLabel">
+                    <li><a tabindex="-1" href="#">Action</a></li>
+                    <li><a tabindex="-1" href="#">Another action</a></li>
+                    <li><a tabindex="-1" href="#">Something else here</a></li>
+                    <li class="divider"></li>
+                    <li><a tabindex="-1" href="#">Separated link</a></li>
+                  </ul>
+                </div> -->
+            </div>
+
+            <div class="col-sm-6">
+              <div class="form-group <?php echo (isset($errors['sale_start_time']) ? 'has-error' : '') ?>">
+                <label for="sale_start_time">Arrival Time:</label><span class="required"> *</span>
+                <?php echo (isset($errors['sale_start_time']) ? $errors['sale_start_time'] : "") ?>
+                <input type="time" name="sale_start_time" class="form-control" id="sale_start_time" placeholder="--:-- -- AM" value="<?php echo (isset($_POST['sale_start_time']) ? $_POST['sale_start_time'] : ''); echo (isset($sale['sale_start_time']) ? $sale['sale_start_time'] : '') ?>"/>
+              </div>
+              <div class="form-group <?php echo (isset($errors['sale_finish_time']) ? 'has-error' : '') ?>">
+                <label for="sale_finish_time">Departure Time:</label><span class="required"> *</span>
+                <?php echo (isset($errors['sale_finish_time']) ? $errors['sale_finish_time'] : "") ?>
+                <input type="time" name="sale_finish_time" class="form-control" id="sale_finish_time" placeholder="--:-- -- AM" value="<?php echo (isset($_POST['sale_finish_time']) ? $_POST['sale_finish_time'] : ''); echo (isset($sale['sale_finish_time']) ? $sale['sale_finish_time'] : '') ?>"/>
+              </div>
+              <div class="form-group <?php echo (isset($errors['sale_total_quantity']) ? 'has-error' : '') ?>">
+                <label for="sale_total_quantity">Total staff on site:</label><span class="required"> *</span>
+                <?php echo (isset($errors['sale_total_quantity']) ? $errors['sale_total_quantity'] : "") ?>
+                <input type="number" name="sale_total_quantity" class="form-control" id="sale_total_quantity" placeholder="Enter total number of staff on site" value="<?php echo (isset($_POST['sale_total_quantity']) ? $_POST['sale_total_quantity'] : ''); echo (isset($sale['sale_total_quantity']) ? $sale['sale_total_quantity'] : '') ?>"/>
+              </div>
+            </div>
+        </div>
+
+        <div class="row">
+          <div class="col-sm-12">
+            <div class="form-group">
+              <label for="comment">Logistics + Parking:</label>
+              <textarea name="comment" id="comment" placeholder="Enter any comments or feedback you have for this event." class="form-control" cols="30" rows="5"><?php echo (isset($_POST['comment']) ? $_POST['comment'] : ''); echo (isset($sale['comment']) ? $sale['comment'] : '') ?></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-sm-12">
+            <br>
+            <h3>Staff Participation:</h3>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-sm-12">
+            <div class="form-group">
+              <label for="comment">On a scale of 1-10 how friendly and supportive was the staff?</label><br>
+                <div class="scale1-10">
+                <label class="radio-inline">
+                  <input type="radio" name="inlineRadioOptions" id="inlineRadio1" value="option1"> 1
+                </label>
+                <label class="radio-inline">
+                  <input type="radio" name="inlineRadioOptions" id="inlineRadio2" value="option2"> 2
+                </label>
+                <label class="radio-inline">
+                  <input type="radio" name="inlineRadioOptions" id="inlineRadio3" value="option3"> 3
+                </label>
+                <label class="radio-inline">
+                  <input type="radio" name="inlineRadioOptions" id="inlineRadio3" value="option3"> 4
+                </label>
+                <label class="radio-inline">
+                  <input type="radio" name="inlineRadioOptions" id="inlineRadio3" value="option3"> 5
+                </label>
+                <label class="radio-inline">
+                  <input type="radio" name="inlineRadioOptions" id="inlineRadio3" value="option3"> 6
+                </label>
+                <label class="radio-inline">
+                  <input type="radio" name="inlineRadioOptions" id="inlineRadio3" value="option3"> 7
+                </label>
+                <label class="radio-inline">
+                  <input type="radio" name="inlineRadioOptions" id="inlineRadio3" value="option3"> 8
+                </label>
+                <label class="radio-inline">
+                  <input type="radio" name="inlineRadioOptions" id="inlineRadio3" value="option3"> 9
+                </label>
+                <label class="radio-inline">
+                  <input type="radio" name="inlineRadioOptions" id="inlineRadio3" value="option3"> 10
+                </label>
+                </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-sm-12">
+            <div class="form-group">
+              <label for="comment">On a scale of 1-10 how knowledgable was the staff on LG products?</label><br>
+                <div class="scale1-10">
+                <label class="radio-inline">
+                  <input type="radio" name="inlineRadioOptions" id="inlineRadio1" value="option1"> 1
+                </label>
+                <label class="radio-inline">
+                  <input type="radio" name="inlineRadioOptions" id="inlineRadio2" value="option2"> 2
+                </label>
+                <label class="radio-inline">
+                  <input type="radio" name="inlineRadioOptions" id="inlineRadio3" value="option3"> 3
+                </label>
+                <label class="radio-inline">
+                  <input type="radio" name="inlineRadioOptions" id="inlineRadio3" value="option3"> 4
+                </label>
+                <label class="radio-inline">
+                  <input type="radio" name="inlineRadioOptions" id="inlineRadio3" value="option3"> 5
+                </label>
+                <label class="radio-inline">
+                  <input type="radio" name="inlineRadioOptions" id="inlineRadio3" value="option3"> 6
+                </label>
+                <label class="radio-inline">
+                  <input type="radio" name="inlineRadioOptions" id="inlineRadio3" value="option3"> 7
+                </label>
+                <label class="radio-inline">
+                  <input type="radio" name="inlineRadioOptions" id="inlineRadio3" value="option3"> 8
+                </label>
+                <label class="radio-inline">
+                  <input type="radio" name="inlineRadioOptions" id="inlineRadio3" value="option3"> 9
+                </label>
+                <label class="radio-inline">
+                  <input type="radio" name="inlineRadioOptions" id="inlineRadio3" value="option3"> 10
+                </label>
+                </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-sm-12">
+            <br>
+            <h3>Traffic + Consumer Engagement:</h3>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-sm-3">
+            <div class="form-group">
+              <label for="sale_queen_single" class="text-muted">Total Number of Impressions:</label>
+              <input type="number" name="sale_queen_single" class="form-control" id="sale_queen_single" placeholder="Enter total impressions" value="<?php echo (isset($_POST['sale_queen_single']) ? $_POST['sale_queen_single'] : ''); echo (isset($sale['sale_queen_single']) ? $sale['sale_queen_single'] : '') ?>"/>
+            </div>
+          </div>
+          <div class="col-sm-3">
+            <div class="form-group">
+              <label for="sale_queen_set" class="text-muted">People spoken to:</label>
+              <input type="number" name="sale_queen_set" class="form-control" id="sale_queen_set" placeholder="Enter total people spoken to" value="<?php echo (isset($_POST['sale_queen_set']) ? $_POST['sale_queen_set'] : ''); echo (isset($sale['sale_queen_set']) ? $sale['sale_queen_set'] : '') ?>"/>
+            </div>
+          </div>
+          <div class="col-sm-3">
+            <div class="form-group">
+              <label for="sale_queen_sheet" class="text-muted">Soft handoffs:</label>
+              <input type="number" name="sale_queen_sheet" class="form-control" id="sale_queen_sheet" placeholder="Enter total handoffs" value="<?php echo (isset($_POST['sale_queen_sheet']) ? $_POST['sale_queen_sheet'] : ''); echo (isset($sale['sale_queen_sheet']) ? $sale['sale_queen_sheet'] : '') ?>"/>
+            </div>
+          </div>
+          <div class="col-sm-3">
+            <div class="form-group">
+              <label for="sale_queen_bundle" class="text-muted">Total Giveaways Distributed:</label>
+              <input type="number" name="sale_queen_bundle" class="form-control" id="sale_queen_bundle" placeholder="Enter total giveaways" value="<?php echo (isset($_POST['sale_queen_bundle']) ? $_POST['sale_queen_bundle'] : ''); echo (isset($sale['sale_queen_bundle']) ? $sale['sale_queen_bundle'] : '') ?>"/>
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-sm-12">
+            <br>
+            <h3>LG Device Sales:</h3>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-sm-3">
+            <div class="form-group">
+              <label for="sale_queen_single" class="text-muted">K7:</label>
+              <input type="number" name="sale_queen_single" class="form-control" id="sale_queen_single" placeholder="Enter qty sold" value="<?php echo (isset($_POST['sale_queen_single']) ? $_POST['sale_queen_single'] : ''); echo (isset($sale['sale_queen_single']) ? $sale['sale_queen_single'] : '') ?>"/>
+            </div>
+          </div>
+          <div class="col-sm-3">
+            <div class="form-group">
+              <label for="sale_queen_set" class="text-muted">K10:</label>
+              <input type="number" name="sale_queen_set" class="form-control" id="sale_queen_set" placeholder="Enter qty sold" value="<?php echo (isset($_POST['sale_queen_set']) ? $_POST['sale_queen_set'] : ''); echo (isset($sale['sale_queen_set']) ? $sale['sale_queen_set'] : '') ?>"/>
+            </div>
+          </div>
+          <div class="col-sm-3">
+            <div class="form-group">
+              <label for="sale_queen_sheet" class="text-muted">GPad:</label>
+              <input type="number" name="sale_queen_sheet" class="form-control" id="sale_queen_sheet" placeholder="Enter qty sold" value="<?php echo (isset($_POST['sale_queen_sheet']) ? $_POST['sale_queen_sheet'] : ''); echo (isset($sale['sale_queen_sheet']) ? $sale['sale_queen_sheet'] : '') ?>"/>
+            </div>
+          </div>
+          <div class="col-sm-3">
+            <div class="form-group">
+              <label for="sale_queen_bundle" class="text-muted">G5:</label>
+              <input type="number" name="sale_queen_bundle" class="form-control" id="sale_queen_bundle" placeholder="Enter qty sold" value="<?php echo (isset($_POST['sale_queen_bundle']) ? $_POST['sale_queen_bundle'] : ''); echo (isset($sale['sale_queen_bundle']) ? $sale['sale_queen_bundle'] : '') ?>"/>
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-sm-3">
+            <div class="form-group">
+              <label for="sale_king_single" class="text-muted">Stylo 2+:</label>
+              <input type="number" name="sale_king_single" class="form-control" id="sale_king_single" placeholder="Enter qty sold" value="<?php echo (isset($_POST['sale_king_single']) ? $_POST['sale_king_single'] : ''); echo (isset($sale['sale_king_single']) ? $sale['sale_king_single'] : '') ?>">
+            </div>
+          </div>
+          <div class="col-sm-3">
+            <div class="form-group">
+              <label for="sale_king_set" class="text-muted">V10:</label>
+              <input type="number" name="sale_king_set" class="form-control" id="sale_king_set" placeholder="Enter qty sold" value="<?php echo (isset($_POST['sale_king_set']) ? $_POST['sale_king_set'] : ''); echo (isset($sale['sale_king_set']) ? $sale['sale_king_set'] : '') ?>">
+            </div>
+          </div>
+          <div class="col-sm-3">
+            <div class="form-group">
+              <label for="sale_king_sheet" class="text-muted">V20:</label>
+              <input type="number" name="sale_king_sheet" class="form-control" id="sale_king_sheet" placeholder="Enter qty sold" value="<?php echo (isset($_POST['sale_king_sheet']) ? $_POST['sale_king_sheet'] : ''); echo (isset($sale['sale_king_sheet']) ? $sale['sale_king_sheet'] : '') ?>"/>
+            </div>
+          </div>
+          <div class="col-sm-3">
+            <div class="form-group">
+              <label for="sale_king_bundle" class="text-muted">G6:</label>
+              <input type="number" name="sale_king_bundle" class="form-control" id="sale_king_bundle" placeholder="Enter qty sold" value="<?php echo (isset($_POST['sale_king_bundle']) ? $_POST['sale_king_bundle'] : ''); echo (isset($sale['sale_king_bundle']) ? $sale['sale_king_bundle'] : '') ?>"/>
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-sm-12">
+            <br>
+            <h3>Competitor Sales:</h3>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-sm-6">
+            <div class="form-group">
+              <label for="sale_queen_single" class="text-muted">Apple:</label>
+              <input type="number" name="sale_queen_single" class="form-control" id="sale_queen_single" placeholder="Enter qty sold" value="<?php echo (isset($_POST['sale_queen_single']) ? $_POST['sale_queen_single'] : ''); echo (isset($sale['sale_queen_single']) ? $sale['sale_queen_single'] : '') ?>"/>
+            </div>
+          </div>
+          <div class="col-sm-6">
+            <div class="form-group">
+              <label for="sale_queen_set" class="text-muted">Samsung:</label>
+              <input type="number" name="sale_queen_set" class="form-control" id="sale_queen_set" placeholder="Enter qty sold" value="<?php echo (isset($_POST['sale_queen_set']) ? $_POST['sale_queen_set'] : ''); echo (isset($sale['sale_queen_set']) ? $sale['sale_queen_set'] : '') ?>"/>
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-sm-12">
+            <br>
+            <h3>Feedback + Comments:</h3>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-sm-12">
+            <div class="form-group">
+              <label for="comment">Comments:</label>
+              <textarea name="comment" id="comment" placeholder="Enter any comments or feedback you have for this event." class="form-control" cols="30" rows="5"><?php echo (isset($_POST['comment']) ? $_POST['comment'] : ''); echo (isset($sale['comment']) ? $sale['comment'] : '') ?></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-sm-12">
+            <div class="form-group">
+              <label for="comment">Upload:</label>
+              <?php echo (isset($errors['upload']) ? $errors['upload'] : "") ?>
+              <!-- The file upload form used as target for the file upload widget -->
+                  <!-- Redirect browsers with JavaScript disabled to the origin page -->
+                  <noscript><input type="hidden" name="redirect" value="https://blueimp.github.io/jQuery-File-Upload/"></noscript>
+                  <!-- The fileupload-buttonbar contains buttons to add/delete files and start/cancel the upload -->
+                  <input type="hidden" name="user_id" value="<?php echo $_SESSION['logSyscuruser'] ?>">
+                  <div class="row fileupload-buttonbar">
+                      <div class="col-lg-7">
+                          <!-- The fileinput-button span is used to style the file input field as button -->
+                          <span id="file-0" class="btn btn-success fileinput-button">
+                              <i class="glyphicon glyphicon-plus"></i>
+                              <span>Add files...</span>
+                              <input id="0" type="file" name="fileToUpload[]" class="image_upload" multiple>
+                          </span>
+                          <!-- The global file processing state -->
+                          <span class="fileupload-process"></span>
+                      </div>
+                      <!-- The global progress state -->
+                      <div class="col-lg-5 fileupload-progress fade">
+                          <!-- The global progress bar -->
+                          <div class="progress progress-striped active" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+                              <div class="progress-bar progress-bar-success" style="width:0%;"></div>
+                          </div>
+                          <!-- The extended global progress state -->
+                          <div class="progress-extended">&nbsp;</div>
+                      </div>
+                  </div>
+                  <!-- The table listing the files available for upload/download -->
+                  <table role="presentation" class="table table-striped">
+                    <tbody class="files">
+                    <?php if (isset($existing_files) && !empty($existing_files)) {
+                        foreach ($existing_files as $file) { ?>
+                          <tr id="<?php echo $file['file_id'];?>">
+                          <td><div class="col-sm-12">
+                          <div class="col-sm-3 center"><img class="image_preview img-thumbnail" src="<?php echo $file['url']; ?>" alt="your image" /></div>
+                          <div class="col-sm-3 center"><h4>File Name:</h4><?php echo $file['name']; ?></div>
+                          <div class="col-sm-3 center"><h4>File Size:</h4><?php echo $file['size']; ?></div>
+                          <div class="col-sm-3 center">
+                          <h4>Action:</h4>
+                          <button type="button" class="remove btn btn-danger" >Remove</button>
+                          </div>
+                          </div></td>
+                          </tr>
+                    <?php }
+                    } ?>
+                    </tbody>
+                  </table>
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-sm-12">
+            <button type="submit" id="submit_form" name="submit_form" class="btn btn-primary btn-lg btn-block start">Submit</button>
+          </div>
+          <br/>
+          <br/>
+          <br/>
+        </div>
+        <div class="row">
+        <div class="col-sm-12">
+        <div class="modal fade" id="basicModal" tabindex="-1" role="dialog" aria-labelledby="basicModal" aria-hidden="true">
+            <div class="modal-dialog img-responsive" style="z-index: 1050;">
+                <div class="modal-content center">
+                    <div class="modal-body center">
+                      <img src="./images/loading.gif" alt="loading" class="img-responsive" style="margin: 0 auto;">
+                    </div>
+                </div>
+            </div>
+          </div>
+        </div>
+        </div>
+        </div>
+      </form>
+    </div>
+    <script src="js/modernizer.js"></script>
+    <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+    <!-- <script src="https://ajax.googleapis.com/ajax/libs/jquerymobile/1.4.3/jquery.mobile.min.js"></script> -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.2/jquery-ui.min.js"></script>
+    <!-- <script src="//ajax.googleapis.com/ajax/libs/jquerymobile/1.4.3/jquery.mobile.min.js"></script> -->
+    <!-- Include all compiled plugins (below), or include individual files as needed -->
+
+    <script src="js/bootstrap.min.js"></script>
+    <script src="js/vendor/jquery.ui.widget.js"></script>
+    <!-- The main application script -->
+    <script src="js/js-webshim/minified/polyfiller.js"></script>
+    <script src="js/main.js"></script>
+
+    <script>
+
+      function humanFileSize(bytes, si) {
+          var thresh = si ? 1000 : 1024;
+          if(bytes < thresh) return bytes + ' B';
+          var units = si ? ['kB','MB','GB','TB','PB','EB','ZB','YB'] : ['KiB','MiB','GiB','TiB','PiB','EiB','ZiB','YiB'];
+          var u = -1;
+          do {
+              bytes /= thresh;
+              ++u;
+          } while(bytes >= thresh);
+          return bytes.toFixed(1)+' '+units[u];
+      };
+
+      function centerModal() {
+          $(this).css('display', 'block');
+          var $dialog = $(this).find(".modal-dialog");
+          var offset = ($(window).height() - $dialog.height()) / 2;
+          // Center modal vertically in window
+          $dialog.css("margin-top", offset);
+      }
+
+      $(document).ready( function() {
+
+        $(document).on('click', '#delete', function(){
+          $('#sale_entry').prepend('<input id="delete" type="hidden" name="delete" value="true" />');
+          $('#sale_entry').submit();
+          $('#delete').remove();
+        });
+
+        $(document).on("click","#submit_form", function(){
+          var options = {
+              "backdrop" : "static",
+              "show" : true
+          }
+          $('#basicModal').each(centerModal).modal(options);
+        });
+
+        $(document).on("click",".remove", function(){
+          var id = $(this).closest('tr').attr('id');
+          $(this).closest('tr').remove();
+          $('#file-'+id).remove();
+
+          $.ajax({
+           type: "POST",
+           url: "./ajax/remove_image.php",
+           data: {id:id},
+           cache: false,
+           success: function(response) {
+            // $('.alert-success').addClass('hidden').text('');
+            // $('.alert-success').removeClass('hidden').show().html('<h4>Success Notification:</h4><p>Image has been removed</p>');
+           },
+           error: function (jqXHR, textStatus, errorThrown) { alert("There was a problem with inserting the Record"); }
+         });
+
+        });
+
+        $('.alert').delay(5000).fadeOut(3000);
+
+        $(document).on("change",'.image_upload', function(){
+          $(this).closest('.fileinput-button').hide();
+          id = $(this).attr('id');
+          // console.log(this.files[0]);
+          // var files = this.files;
+          // console.log(files);
+
+          if (this.files && this.files[0]) {
+            $(this.files).each(function () {
+              var size = humanFileSize(this['size'], 1024);
+              var name = this['name'];
+              var reader = new FileReader();
+              reader.readAsDataURL(this);
+              reader.onload = function (e) {
+
+                html = '<tr id="'+id+'">';
+                html += '<td><div class="col-sm-12">';
+                html += '<div class="col-sm-3 center"><img class="image_preview img-thumbnail" src="'+e.target.result+'" alt="your image" /></div>';
+                html += '<div class="col-sm-3 center"><h4>File Name:</h4>'+name+'</div>';
+                html += '<div class="col-sm-3 center"><h4>File Size:</h4>'+size+'</div>';
+                html += '<div class="col-sm-3 center">';
+                html += '<h4>Action:</h4>';
+                html += '<button type="button" class="remove btn btn-danger" >Remove</button>';
+                html += '</div>';
+                html += '</div></td>';
+                // html += '<td><button type="button" class="btn btn-danger delete"><span>Remove</span></button></td>';
+                html += '</tr>';
+
+                $('.files').prepend(html);
+
+              }
+            });
+          }
+
+          html =  '<span id="file-'+(+id+1)+'" class="btn btn-success fileinput-button">';
+          html += '<i class="glyphicon glyphicon-plus" style="margin-right:5px;"></i>';
+          html += '<span>Add files...</span>';
+          html += '<input id="'+(+id+1)+'" type="file" name="fileToUpload[]" class="image_upload" multiple>';
+          html += '</span>';
+
+          $('.fileupload-buttonbar .col-lg-7').prepend(html);
+
+        });
+
+      });
+
+      //webshim.setOptions('basePath', '/js-webshim/minified/shims/');
+
+      //request the features you need:
+      webshim.polyfill('es5 mediaelement forms forms-ext');
+
+      webshim.setOptions("forms-ext", {
+        "widgets": {
+          "startView": 0,
+          "minView": 1,
+          "inlinePicker": false,
+          "size": 1,
+          "splitInput": false,
+          "yearSelect": false,
+          "monthSelect": false,
+          "daySelect": false,
+          "noChangeDismiss": false,
+          "openOnFocus": true,
+          "buttonOnly": false,
+          "classes": "",
+          "popover": {
+            //popover options
+          },
+          "calculateWidth": true,
+          "animate": true,
+          "toFixed": 0,
+          "onlyFixFloat": false
+        }
+      });
+
+
+    </script>
+  </body>
+</html>
