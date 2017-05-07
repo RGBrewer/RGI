@@ -13,23 +13,22 @@ class ControllerExtensionModuleTimeclock extends Controller {
 		if (!$this->customer->isLogged()) {	  
 			 $this->response->redirect($this->url->link('account/login', '', 'SSL'));
     	} 
-
 		/* Check if data has been posted back. */
 		/* To do: Validate the data */
-		if (($this->request->server['REQUEST_METHOD'] == 'POST') ) {
+		if (($this->request->server['REQUEST_METHOD'] == 'POST') && ($_POST['datestamp']) ) {
 			
 			$this->load->model('extension/module/timeclock');
-			$data ['datestamp'] = $_POST['datestamp'];
+			$data ['datestamp'] = $this->request->post['datestamp'];
 			$data ['custID'] = $this->customer->getId();
-			$this->model_extension_module_timeclock->setPunch($data['custID'],$_POST['datestamp']);
+			$this->model_extension_module_timeclock->setPunch($data['custID'],$this->request->post['datestamp']);
 			$data['success'] = true;
 			$this->cache->delete('timeclock');
-			// $this->response->redirect($this->url->link('common/home'));
+			 $this->response->redirect($this->url->link('common/home'));
 
 		}
 
 		/* Load language strings. */
-		$data['text_edit'] = $this->language->get('text_edit');
+		$data['text_edit'] = "edit";
 		$data['heading_title'] = $this->language->get('heading_title');
 
 		// $data['button_save'] = $this->language->get('button_save');
@@ -37,7 +36,7 @@ class ControllerExtensionModuleTimeclock extends Controller {
 
 		/* Loading up some URLS. */
 		// $data['cancel'] = $this->url->link('extension/extension', 'token=' . $this->session->data['token'], 'SSL');
-		$data['form_action'] = $this->url->link('extension/module/timeclock', 'token=' . $this->session->data['token'], 'SSL');
+		$data['form_action'] = $this->url->link('extension/module/timeclock');
 
 		/* Present error messages to users. */
 		if (isset($this->error['warning'])) {
@@ -67,37 +66,42 @@ class ControllerExtensionModuleTimeclock extends Controller {
 		// }
 
 		/* Breadcrumb. */
-		$data['breadcrumbs'] = array();
+		// $data['breadcrumbs'] = array();
 
-		$data['breadcrumbs'][] = array(
-			'text' => $this->language->get('text_home'),
-			'href' => $this->url->link('common/home')
-		);
+		// $data['breadcrumbs'][] = array(
+		// 	'text' => "Home",
+		// 	'href' => $this->url->link('common/home')
+		// );
 		
 	
-		$data['breadcrumbs'][] = array(
-			'text' => "Time Clock",
-			'href' => $this->url->link('extension/module/timeclock')
-		);
+		// $data['breadcrumbs'][] = array(
+		// 	'text' => "Time Clock",
+		// 	'href' => $this->url->link('extension/module/timeclock')
+		// );
 
 		/* Render some output. */
-		$data['header'] = $this->load->controller('common/header');
-		$data['column_left'] = $this->load->controller('common/column_left');
-		$data['footer'] = $this->load->controller('common/footer');
+		// $data['header'] = $this->load->controller('common/header');
+		// $data['column_left'] = $this->load->controller('common/column_left');
+		// $data['footer'] = $this->load->controller('common/footer');
 
-		$this->response->setOutput($this->load->view('extension/module/timeclock.tpl', $data));
+
+
+	//if you want it as a route:
+	// $this->response->setOutput($this->load->view('extension/module/timeclock.tpl', $data));	
+	//if you want it attached to layouts
+	return $this->load->view('extension/module/timeclock.tpl', $data);
 	}
 
 	/* Check user input. */
 	private function validate() {
-		if (strlen($this->request->post['mymodule_title']) <= 3) {
-			$this->error['warning'] = $this->language->get('error_title');
-		}
+		// if (strlen($this->request->post['mymodule_title']) <= 3) {
+		// 	$this->error['warning'] = $this->language->get('error_title');
+		// }
 
-		if ($this->error) {
-			return false;
-		} else {
-			return true;
-		}
+		// if ($this->error) {
+		// 	return false;
+		// } else {
+		// 	return true;
+		// }
 	}
 }
