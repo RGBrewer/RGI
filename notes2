@@ -1,0 +1,75 @@
+use admin panel to empty modules from homepage. we will write our own.
+
+New version has the modules inside the extensions folder. This creates 3-deep routes.
+
+
+login form is in account/login.tpl
+logout page is in account/logout.tpl 
+the main account page is account/account
+
+/* get rid of wishlist */
+https://forum.opencart.com/viewtopic.php?t=32955
+and cntrlshiftF
+
+right side bar
+\openCart\catalog\view\theme\default\template\extension\module\account.tpl:
+
+
+
+
+Will force login: 
+in catalog\controller\common\home
+	if (!$this->customer->isLogged()){
+			 $this->response->redirect($this->url->link('account/login', '', 'SSL'));
+		}
+
+
+
+
+Your controller should have this sorta thing
+
+	public function updateOrderById(){
+		$newVal = $_POST['newVal'];
+		$newTitle = $_POST['of_title'];
+		$order_id = $_GET['order_id'];
+		$this->load->model('sale/order');
+		$this->model_sale_order->setOrderById($newTitle,$newVal,$order_id);
+
+	}
+
+
+you post to that by ajax
+
+$(".tracking_edit").on("click", function(){ //when we click edit/save button
+  var trackingNumber = $(this).closest(".order_row").find(".tracking_number_entry").val(); //get the input box value
+  var entry_container = $(this).closest(".order_row").find('.tracking_entry_container'); //select that row
+  
+(only need the token in admin)
+  var token = "<?php echo $_GET['token']; ?>"; //admin api token
+
+
+    if (toggle.html()=="save"){ //if we've clicked on save button
+      $.ajax({
+        type: "POST",
+        url: 'index.php?route=sale/order/updatetracking&token=' + token + '&order_id=' + order_id,        
+        data: { tracking_number: trackingNumber,
+          tracking_comp: trackingCompany
+               }, //key value pairs in JSON format
+        crossDomain: true, //possibly not necessary
+        success: function (msg) {
+          entry_container.hide();
+          tracking_display_numb.show();
+        }
+      });
+
+  };
+    // else
+      $(this).html("save"); //turn the toggle to save
+      cancel.show();
+
+
+and in the model
+
+public function setTracking($trackingNum,$trackingComp,$order_id){		
+	$this->db->query("UPDATE " . DB_PREFIX . "order SET shipping_tracking = '" . $trackingNum . "',shipping_tracking_company = '" . $trackingComp . "' WHERE order_id = '" . (int)$order_id . "'");
+}
