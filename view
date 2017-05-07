@@ -1,5 +1,7 @@
-<?php echo $header ?>
-<?php echo $column_left?>
+/*Only include if NOT modularized */
+<?php //echo $header ?>
+<?php //echo $column_left ?>
+
 <style>
 td{
 	text-align: center;
@@ -9,31 +11,20 @@ td{
 	color:green;
 }
 </style>
-    <div class="container">
-      <ul class="breadcrumb">
-        <?php foreach ($breadcrumbs as $breadcrumb) { ?>
-        <li><a href="<?php echo $breadcrumb['href']; ?>"><?php echo $breadcrumb['text']; ?></a></li>
-        <?php } ?>
-      </ul>
-    </div>
-
-<div>
+   
 	<center><h1>Time Clock</h1>
 
-<div class="punchSaved alert alert-success" style="width:50%; display:none">
-  <strong>Success!</strong> Your punch was recorded at 
+	<div class="punchSaved alert alert-success" style="width:50%; display:none">
+	  <strong>Success!</strong> Your punch was recorded at 
 
-  <br><br><br>
-  <span class="displayPunch"></span>
-  <br><br><br>
-  
-  <h2>You may log out now, or continue <a href="index.php?route=common/home">home</a></h2>
-</div>
+	  <br><br><br>
+	  <b><span class="displayPunch"></span></b>
+	  <br><br><br>
 
+	  <p>Returning to the homepage.</p>
+	</div>
 
-	
-			<p class="btnSubmit"><b>PUNCH</b></p>
-</div>
+	<p class="btnSubmit" style="cursor:pointer"><b>PUNCH</b></p>
 
 
 <script>
@@ -50,27 +41,22 @@ var dt = new Date();
         success: function (msg) {
         	$('.displayPunch').text(dt);
         	$('.punchSaved').slideToggle();
-        	$('.btnSubmit').hide();
+        	$('.btnSubmit').slideUp();
+
+        	setTimeout(function(){ 
+        	$('.punchSaved').slideToggle();
+        	$('.btnSubmit').slideToggle();
+	        	setTimeout(function(){ 
+	        	window.location.href = "index.php?route=common/home";
+    	    	}, 500);
+        	}, 3500);
         }
-        
       });
-
-
-
-
-
-
-
-
 });
 
 $('form').submit(function() {
   return false;
 });
-
-
-
-
 
 
 </script>
