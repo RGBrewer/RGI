@@ -1,0 +1,76 @@
+<?php echo $header ?>
+<?php echo $column_left?>
+<style>
+td{
+	text-align: center;
+
+}
+.successMsg{
+	color:green;
+}
+</style>
+    <div class="container">
+      <ul class="breadcrumb">
+        <?php foreach ($breadcrumbs as $breadcrumb) { ?>
+        <li><a href="<?php echo $breadcrumb['href']; ?>"><?php echo $breadcrumb['text']; ?></a></li>
+        <?php } ?>
+      </ul>
+    </div>
+
+<div>
+	<center><h1>Time Clock</h1>
+
+<div class="punchSaved alert alert-success" style="width:50%; display:none">
+  <strong>Success!</strong> Your punch was recorded at 
+
+  <br><br><br>
+  <span class="displayPunch"></span>
+  <br><br><br>
+  
+  <h2>You may log out now, or continue <a href="index.php?route=common/home">home</a></h2>
+</div>
+
+
+	
+			<p class="btnSubmit"><b>PUNCH</b></p>
+</div>
+
+
+<script>
+$(".btnSubmit").on('click',function(){
+var dt = new Date();
+
+  $.ajax({
+        type: "POST",
+        url: 'index.php?route=extension/module/timeclock',        
+        data: { 
+        	datestamp: dt
+               }, //key value pairs in JSON format
+        crossDomain: true, //possibly not necessary
+        success: function (msg) {
+        	$('.displayPunch').text(dt);
+        	$('.punchSaved').slideToggle();
+        	$('.btnSubmit').hide();
+        }
+        
+      });
+
+
+
+
+
+
+
+
+});
+
+$('form').submit(function() {
+  return false;
+});
+
+
+
+
+
+
+</script>
